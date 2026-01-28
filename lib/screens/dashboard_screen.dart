@@ -130,11 +130,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     int assignmentsCompleted = assignments.where((a) {
       String status = a['submission_status'] ?? 'not_submitted';
-      return status == 'completed' || status == 'graded';
+      return status == 'submitted' || status == 'graded';
     }).length;
 
     int quizzesCompleted = quizzes.where((q) {
-      return q['submission_status'] == 'completed';
+      String quiz_status = q['submission_status'] ?? 'not_submitted';
+      return quiz_status == 'submitted' || quiz_status == 'graded';
     }).length;
 
     return Row(
@@ -573,10 +574,10 @@ Widget _buildAssignmentItem(Map<String, dynamic> assignment) {
     Color statusColor;
     String statusText;
     
-    if (status == 'completed') {
+    if (status == 'graded') {
       statusIcon = Icons.check_circle;
       statusColor = Colors.green;
-      statusText = 'Completed';
+      statusText = 'Graded';
     } else {
       statusIcon = Icons.radio_button_unchecked;
       statusColor = Colors.grey;
