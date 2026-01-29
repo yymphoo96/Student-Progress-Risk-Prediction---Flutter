@@ -69,16 +69,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Logo
-                  Icon(
-                    Icons.school,
-                    size: 100,
-                    color: Colors.blue,
+                  Image.asset(
+                    'assets/icon/edurisk_icon.png',
+                    width: 110,
+                    height: 110,
                   ),
                   SizedBox(height: 24),
-                  
+
                   // Title
                   Text(
-                    'Student Progress',
+                    'EduRisk',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
