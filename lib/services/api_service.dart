@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://127.0.0.1:8000/api';
+  static const String baseUrl = 'http://172.20.10.2:8000/api';//local
+  // static const String baseUrl = 'http://210.146.64.139:8088/api'; //production
+  
 
   // Token management (keep existing methods)
   Future<void> saveToken(String token) async {
@@ -31,19 +33,25 @@ class ApiService {
     required String firstName,
     required String lastName,
     required String studentId,
+    int? gender,
+    String? country,
   }) async {
+    final body = <String, dynamic>{
+      'email': email,
+      'username': username,
+      'password': password,
+      'password2': password,
+      'first_name': firstName,
+      'last_name': lastName,
+      'student_id': studentId,
+    };
+    if (gender != null) body['gender'] = gender;
+    if (country != null) body['country'] = country;
+
     final response = await http.post(
       Uri.parse('$baseUrl/auth/register_request/'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': email,
-        'username': username,
-        'password': password,
-        'password2': password,
-        'first_name': firstName,
-        'last_name': lastName,
-        'student_id': studentId,
-      }),
+      body: jsonEncode(body),
     );
 
     if (response.statusCode == 200) {
@@ -193,6 +201,7 @@ class ApiService {
     String? lastName,
     String? phone,
     String? country,
+    int? gender,
   }) async {
     final token = await getToken();
     if (token == null) throw Exception('Not authenticated');
@@ -202,6 +211,7 @@ class ApiService {
     if (lastName != null) body['last_name'] = lastName;
     if (phone != null) body['phone'] = phone;
     if (country != null) body['country'] = country;
+    if (gender != null) body['gender'] = gender;
 
     final response = await http.patch(
       Uri.parse('$baseUrl/auth/update_profile/'),
@@ -289,5 +299,59 @@ class ApiService {
   } else {
     throw Exception('Failed to load course details: ${response.body}');
   }
+  }
+
+  // Forgot password - request OTP
+  Future<Map<String, dynamic>> forgotPasswordRequest({
+    required String email,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/forgot_password/'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      try {
+        final error = jsonDecode(response.body);
+        throw Exception(error['error'] ?? 'Failed to send reset code');
+      } on FormatException {
+        throw Exception('Failed to send reset code. Please try again.');
+      }
+    }
+  }
+
+  // Forgot password - reset with OTP
+  Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String otpCode,
+    required String newPassword,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/auth/reset_password/'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'otp_code': otpCode,
+        'new_password': newPassword,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      final error = jsonDecode(response.body);
+      String errorMessage = 'Failed to reset password';
+      if (error is Map) {
+        if (error.containsKey('error')) {
+          errorMessage = error['error'];
+        } else if (error.containsKey('non_field_errors')) {
+          errorMessage = error['non_field_errors'][0];
+        }
+      }
+      throw Exception(errorMessage);
+    }
   }
 }

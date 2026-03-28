@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "723401592116",
+    "project_id": "edurisk-bf9dd",
+    "storage_bucket": "edurisk-bf9dd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:723401592116:android:ae3e22e5760082fd406961",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBdyobJ_7Yaylu_rXAfoqfA2EVbtF8Kc50"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

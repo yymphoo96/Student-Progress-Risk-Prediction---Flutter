@@ -21,10 +21,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  
+  final _countryController = TextEditingController();
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  int? _selectedGender;
 
   @override
   void dispose() {
@@ -35,6 +37,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _usernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _countryController.dispose();
     super.dispose();
   }
 
@@ -82,6 +85,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         studentId: _studentIdController.text.trim(),
+        gender: _selectedGender,
+        country: _countryController.text.trim().isEmpty
+            ? null
+            : _countryController.text.trim(),
       );
 
       // ✅ Navigate to OTP screen
@@ -176,6 +183,34 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   validator: (value) => value == null || value.isEmpty ? 'Student ID is required' : null,
+                ),
+                SizedBox(height: 16),
+
+                // Gender
+                DropdownButtonFormField<int>(
+                  value: _selectedGender,
+                  decoration: InputDecoration(
+                    labelText: 'Gender',
+                    prefixIcon: Icon(Icons.wc),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 1, child: Text('Male')),
+                    DropdownMenuItem(value: 0, child: Text('Female')),
+                  ],
+                  onChanged: (value) => setState(() => _selectedGender = value),
+                  validator: (value) => value == null ? 'Please select your gender' : null,
+                ),
+                SizedBox(height: 16),
+
+                // Country
+                TextFormField(
+                  controller: _countryController,
+                  decoration: InputDecoration(
+                    labelText: 'Country',
+                    prefixIcon: Icon(Icons.location_on_outlined),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                 ),
                 SizedBox(height: 16),
 
