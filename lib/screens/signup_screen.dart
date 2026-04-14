@@ -18,7 +18,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _lastNameController = TextEditingController();
   final _studentIdController = TextEditingController();
   final _emailController = TextEditingController();
-  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _countryController = TextEditingController();
@@ -34,7 +33,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _lastNameController.dispose();
     _studentIdController.dispose();
     _emailController.dispose();
-    _usernameController.dispose();
+
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _countryController.dispose();
@@ -80,7 +79,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       // ✅ Step 1: Request OTP
       await _apiService.registerRequest(
         email: _emailController.text.trim(),
-        username: _usernameController.text.trim(),
+        username: _emailController.text.trim().split('@')[0],
         password: _passwordController.text,
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
@@ -228,22 +227,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     helperStyle: TextStyle(color: Colors.blue[600], fontSize: 12),
                   ),
                   validator: _validateEmail,
-                ),
-                SizedBox(height: 16),
-
-                // Username
-                TextFormField(
-                  controller: _usernameController,
-                  decoration: InputDecoration(
-                    labelText: 'Username',
-                    prefixIcon: Icon(Icons.account_circle_outlined),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'Username is required';
-                    if (value.length < 3) return 'Username must be at least 3 characters';
-                    return null;
-                  },
                 ),
                 SizedBox(height: 16),
 

@@ -5,8 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://172.20.10.2:8000/api';//local
-  // static const String baseUrl = 'http://210.146.64.139:8088/api'; //production
+  // static const String baseUrl = 'http://172.20.10.2:8000/api';//local
+  static const String baseUrl = 'http://210.146.64.139:8088/api'; //production
   
 
   // Token management (keep existing methods)
