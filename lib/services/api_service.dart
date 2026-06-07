@@ -5,8 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // static const String baseUrl = 'http://172.20.10.2:8000/api';//local
-  static const String baseUrl = 'http://210.146.64.139:8088/api'; //production
+  static const String baseUrl = 'http://127.0.0.1:8000/api';//local
+  // static const String baseUrl = 'http://210.146.64.139:8088/api'; //production
   
 
   // Token management (keep existing methods)
@@ -23,6 +23,17 @@ class ApiService {
   Future<void> clearToken() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
+    await prefs.remove('user_type');
+  }
+
+  Future<void> saveUserType(String userType) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_type', userType);
+  }
+
+  Future<String?> getUserType() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('user_type');
   }
 
   // ✅ NEW: Step 1 - Request OTP
@@ -147,15 +158,17 @@ class ApiService {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       await saveToken(data['token']);
+      final userType = data['user']?['user_type'];
+      if (userType != null) await saveUserType(userType as String);
       return data;
     } else {
       final error = jsonDecode(response.body);
       String errorMessage = 'Login failed';
-      
+
       if (error is Map && error.containsKey('error')) {
         errorMessage = error['error'];
       }
-      
+
       throw Exception(errorMessage);
     }
   }
@@ -299,6 +312,108 @@ class ApiService {
   } else {
     throw Exception('Failed to load course details: ${response.body}');
   }
+  }
+
+  // --- Teacher methods ---
+
+  Future<List<dynamic>> getTeacherCourses() async {
+    final token = await getToken();
+    if (token == null) throw Exception('Not authenticated');
+    final response = await http.get(
+      Uri.parse('$baseUrl/surveys/teacher_courses/'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Token $token'},
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body) as List<dynamic>;
+    throw Exception('Failed to load teacher courses');
+  }
+
+  Future<Map<String, dynamic>> getSurveyWeekStatus(int courseId) async {
+    final token = await getToken();
+    if (token == null) throw Exception('Not authenticated');
+    final response = await http.get(
+      Uri.parse('$baseUrl/surveys/week_status/?course_id=$courseId'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Token $token'},
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body) as Map<String, dynamic>;
+    throw Exception('Failed to load week status');
+  }
+
+  Future<void> releaseSurvey(int courseId, int weekNumber) async {
+    final token = await getToken();
+    if (token == null) throw Exception('Not authenticated');
+    final response = await http.post(
+      Uri.parse('$baseUrl/surveys/release/'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Token $token'},
+      body: jsonEncode({'course_id': courseId, 'week_number': weekNumber}),
+    );
+    if (response.statusCode != 201) {
+      final err = jsonDecode(response.body);
+      throw Exception(err['error'] ?? 'Failed to release survey');
+    }
+  }
+
+  // --- Survey methods ---
+
+  Future<List<dynamic>> getSurveyQuestions() async {
+    final token = await getToken();
+    if (token == null) throw Exception('Not authenticated');
+    final response = await http.get(
+      Uri.parse('$baseUrl/surveys/questions/'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Token $token'},
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body) as List<dynamic>;
+    throw Exception('Failed to load questions');
+  }
+
+  Future<void> submitSurveyAnswers({
+    required int courseId,
+    required int weekNumber,
+    required List<Map<String, dynamic>> answers,
+  }) async {
+    final token = await getToken();
+    if (token == null) throw Exception('Not authenticated');
+    final response = await http.post(
+      Uri.parse('$baseUrl/surveys/submit/'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Token $token'},
+      body: jsonEncode({'course_id': courseId, 'week_number': weekNumber, 'answers': answers}),
+    );
+    if (response.statusCode != 201) {
+      final err = jsonDecode(response.body);
+      throw Exception(err['error'] ?? 'Failed to submit survey');
+    }
+  }
+
+  Future<Map<String, dynamic>> getSurveyStatus(int courseId, int weekNumber) async {
+    final token = await getToken();
+    if (token == null) throw Exception('Not authenticated');
+    final response = await http.get(
+      Uri.parse('$baseUrl/surveys/status/?course_id=$courseId&week_number=$weekNumber'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Token $token'},
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body) as Map<String, dynamic>;
+    throw Exception('Failed to load survey status');
+  }
+
+  Future<Map<String, dynamic>> getAnySurveyPending(int courseId) async {
+    final token = await getToken();
+    if (token == null) throw Exception('Not authenticated');
+    final response = await http.get(
+      Uri.parse('$baseUrl/surveys/any_pending/?course_id=$courseId'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Token $token'},
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body) as Map<String, dynamic>;
+    throw Exception('Failed to check survey status');
+  }
+
+  Future<Map<String, dynamic>> getSurveyAnalytics(int courseId) async {
+    final token = await getToken();
+    if (token == null) throw Exception('Not authenticated');
+    final response = await http.get(
+      Uri.parse('$baseUrl/surveys/analytics/?course_id=$courseId'),
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Token $token'},
+    );
+    if (response.statusCode == 200) return jsonDecode(response.body) as Map<String, dynamic>;
+    throw Exception('Failed to load survey analytics');
   }
 
   // Forgot password - request OTP

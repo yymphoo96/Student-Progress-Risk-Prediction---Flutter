@@ -23,6 +23,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadProfile() async {
     try {
       final profile = await _apiService.getProfile();
+      // Cache user_type so courses screen gets correct role even after re-login
+      final userType = profile['user_type'] as String?;
+      if (userType != null) await _apiService.saveUserType(userType);
       setState(() {
         _profile = profile;
         _isLoading = false;
@@ -53,8 +56,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       CircleAvatar(radius: 50, child: Icon(Icons.person, size: 50)),
                       SizedBox(height: 10),
-                      Text(_profile!['full_name'], style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-                      Text(_profile!['student_id'], style: TextStyle(color: Colors.white70)),
+                      Text(_profile!['full_name'] ?? '', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                      Text(_profile!['student_id']?.toString() ?? '', style: TextStyle(color: Colors.white70)),
                     ],
                   ),
                 ),

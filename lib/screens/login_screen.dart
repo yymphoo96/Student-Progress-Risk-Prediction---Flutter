@@ -34,17 +34,17 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // ✅ Use named parameters
       await _apiService.login(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
-      // Navigate to home screen
+      if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => HomeScreen()),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString().replaceAll('Exception: ', '')),
@@ -52,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'dashboard_screen.dart';
+import 'survey_screen.dart';
+import 'teacher_course_screen.dart';
 
 // Duolingo-inspired color palette
 class _AppColors {
@@ -41,6 +43,9 @@ class _CoursesScreenState extends State<CoursesScreen>
     with SingleTickerProviderStateMixin {
   final _apiService = ApiService();
   List<dynamic> _courses = [];
+  String _userType = 'student';
+  // courseId → {pending: bool, week_number: int?}
+  final Map<int, Map<String, dynamic>> _surveyStatus = {};
   bool _isLoading = true;
   String? _error;
   late AnimationController _animController;
@@ -68,24 +73,52 @@ class _CoursesScreenState extends State<CoursesScreen>
     });
 
     try {
-      final coursesData = await _apiService.getCourses();
-      List<dynamic> coursesList = [];
-      if (coursesData is List) {
-        coursesList = coursesData;
-      } else if (coursesData is Map) {
-        coursesList = [coursesData];
+      String userType = await _apiService.getUserType() ?? '';
+      if (userType.isEmpty) {
+        // user_type not yet cached (logged in before this feature) — fetch from profile
+        final profile = await _apiService.getProfile();
+        userType = (profile['user_type'] as String?) ?? 'student';
+        await _apiService.saveUserType(userType);
+      }
+
+      List<dynamic> coursesList;
+      if (userType == 'teacher' || userType == 'admin') {
+        coursesList = await _apiService.getTeacherCourses();
+      } else {
+        final coursesData = await _apiService.getCourses();
+        if (coursesData is List) {
+          coursesList = coursesData;
+        } else if (coursesData is Map) {
+          coursesList = [coursesData];
+        } else {
+          coursesList = [];
+        }
       }
 
       setState(() {
         _courses = coursesList;
+        _userType = userType;
         _isLoading = false;
       });
       _animController.forward(from: 0);
+      if (userType == 'student') _loadSurveyStatuses(coursesList);
     } catch (e) {
       setState(() {
         _error = e.toString();
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _loadSurveyStatuses(List<dynamic> courses) async {
+    for (final course in courses) {
+      final courseId = course['course_id'] as int;
+      try {
+        final status = await _apiService.getAnySurveyPending(courseId);
+        if (mounted) setState(() => _surveyStatus[courseId] = status);
+      } catch (_) {
+        // non-critical — skip silently
+      }
     }
   }
 
@@ -134,7 +167,9 @@ class _CoursesScreenState extends State<CoursesScreen>
                 ),
                 if (!_isLoading && _error == null && _courses.isNotEmpty)
                   Text(
-                    '${_courses.length} course${_courses.length != 1 ? 's' : ''} enrolled',
+                    _userType == 'teacher' || _userType == 'admin'
+                        ? '${_courses.length} course${_courses.length != 1 ? 's' : ''} teaching'
+                        : '${_courses.length} course${_courses.length != 1 ? 's' : ''} enrolled',
                     style: const TextStyle(
                       fontSize: 14,
                       color: _AppColors.textMuted,
@@ -286,7 +321,9 @@ class _CoursesScreenState extends State<CoursesScreen>
             ),
             const SizedBox(height: 8),
             Text(
-              'Your enrolled courses will\nappear here.',
+              _userType == 'teacher' || _userType == 'admin'
+                  ? 'Your assigned courses will\nappear here.'
+                  : 'Your enrolled courses will\nappear here.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 15,
@@ -322,6 +359,10 @@ class _CoursesScreenState extends State<CoursesScreen>
         _AppColors.courseGradients[index % _AppColors.courseGradients.length];
     final icon =
         _AppColors.courseIcons[index % _AppColors.courseIcons.length];
+    final courseId = course['course_id'] as int;
+    final isStudent = _userType == 'student';
+    final status = isStudent ? _surveyStatus[courseId] : null;
+    final hasPending = status != null && status['pending'] == true;
 
     final animation = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
@@ -345,7 +386,81 @@ class _CoursesScreenState extends State<CoursesScreen>
           ),
         );
       },
-      child: _buildCardContent(course, colors, icon),
+      child: Column(
+        children: [
+          if (hasPending)
+            _buildSurveyBanner(
+              courseId: courseId,
+              weekNumber: status['week_number'] as int,
+              courseName: course['course_code'] ?? '',
+            ),
+          _buildCardContent(course, colors, icon),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSurveyBanner({
+    required int courseId,
+    required int weekNumber,
+    required String courseName,
+  }) {
+    return GestureDetector(
+      onTap: () async {
+        final submitted = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SurveyScreen(
+              courseId: courseId,
+              weekNumber: weekNumber,
+              courseName: courseName,
+            ),
+          ),
+        );
+        if (submitted == true && mounted) {
+          setState(() => _surveyStatus[courseId] = {'pending': false, 'week_number': weekNumber});
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF8E1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFFFCC02), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFCC02).withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.rate_review_rounded,
+                  color: Color(0xFFE6A800), size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Survey Pending',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF7A5500))),
+                  Text('Week $weekNumber feedback awaits',
+                      style: const TextStyle(
+                          fontSize: 12, color: Color(0xFFB07800))),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded,
+                size: 14, color: Color(0xFFE6A800)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -355,15 +470,24 @@ class _CoursesScreenState extends State<CoursesScreen>
     final courseTitle = course['course_title'] ?? 'No Title';
     final term = course['term'] ?? '';
     final year = course['year']?.toString() ?? '';
+    final isTeacher = _userType == 'teacher' || _userType == 'admin';
+    final studentCount = course['student_count'] as int? ?? 0;
+    final currentWeek = course['current_week'] as int? ?? 0;
 
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => DashboardScreen(
-            courseId: course['course_id'],
-            courseName: courseCode,
-          ),
+          builder: (_) => _userType == 'teacher' || _userType == 'admin'
+              ? TeacherCourseScreen(
+                  courseId: course['course_id'] as int,
+                  courseCode: courseCode,
+                  courseTitle: courseTitle,
+                )
+              : DashboardScreen(
+                  courseId: course['course_id'],
+                  courseName: courseCode,
+                ),
         ),
       ),
       child: Container(
@@ -447,12 +571,19 @@ class _CoursesScreenState extends State<CoursesScreen>
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               child: Row(
                 children: [
-                  _buildInfoChip(
-                      Icons.calendar_today_rounded, '$term $year', colors[0]),
+                  if (isTeacher) ...[
+                    _buildInfoChip(Icons.people_rounded,
+                        '$studentCount student${studentCount != 1 ? 's' : ''}', colors[0]),
+                    const SizedBox(width: 12),
+                    _buildInfoChip(Icons.bar_chart_rounded,
+                        currentWeek > 0 ? 'Week $currentWeek' : 'No class yet', colors[0]),
+                  ] else
+                    _buildInfoChip(Icons.calendar_today_rounded,
+                        '$term $year', colors[0]),
                   const Spacer(),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: colors[0].withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(24),
@@ -461,7 +592,7 @@ class _CoursesScreenState extends State<CoursesScreen>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Continue',
+                          isTeacher ? 'Manage' : 'Continue',
                           style: TextStyle(
                             color: colors[0],
                             fontWeight: FontWeight.w700,

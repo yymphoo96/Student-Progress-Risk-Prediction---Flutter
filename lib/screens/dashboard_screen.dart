@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/api_service.dart';
+import 'survey_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int courseId;
@@ -21,6 +22,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   String? _error;
   int _startWeek = 0;
+  // survey state: null = not yet checked, false = done, true = pending
+  bool? _surveyPending;
+  int? _surveyWeek;
 
   @override
   void initState() {
@@ -37,12 +41,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final dashboardData = await _apiService.getDashboard(widget.courseId);
       final courseDetails = await _apiService.getCourseDetails(widget.courseId);
-      
+
       setState(() {
         _dashboardData = dashboardData;
         _courseDetails = courseDetails;
         _isLoading = false;
       });
+
+      // Check if there is a pending survey for this student
+      final status = await _apiService.getAnySurveyPending(widget.courseId);
+      if (mounted) {
+        setState(() {
+          _surveyPending = status['pending'] as bool? ?? false;
+          _surveyWeek = status['week_number'] as int?;
+        });
+      }
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -75,6 +88,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         _buildCourseHeader(),
                         SizedBox(height: 16),
                         _buildStudentCard(),
+                        if (_surveyPending == true && _surveyWeek != null) ...[
+                          SizedBox(height: 16),
+                          _buildSurveyCard(),
+                        ],
                         SizedBox(height: 16),
                         // _buildQuickAccessButtons(),
                         // SizedBox(height: 16),
@@ -677,6 +694,88 @@ Widget _buildAssignmentItem(Map<String, dynamic> assignment) {
     if (percentage >= 80) return Colors.green;
     if (percentage >= 60) return Colors.orange;
     return Colors.red;
+  }
+
+  Widget _buildSurveyCard() {
+    final week = _surveyWeek!;
+    return GestureDetector(
+      onTap: () async {
+        final submitted = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SurveyScreen(
+              courseId: widget.courseId,
+              weekNumber: week,
+              courseName: widget.courseName,
+            ),
+          ),
+        );
+        if (submitted == true && mounted) {
+          setState(() {
+            _surveyPending = false;
+            _surveyWeek = null;
+          });
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF58CC02), Color(0xFF46A302)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF58CC02).withValues(alpha: 0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.rate_review_rounded,
+                  color: Colors.white, size: 28),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Survey Available',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Week $week feedback — tap to respond',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded,
+                color: Colors.white70, size: 16),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildCourseHeader() {
