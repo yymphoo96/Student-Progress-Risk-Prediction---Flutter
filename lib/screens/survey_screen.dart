@@ -21,7 +21,7 @@ class _SurveyScreenState extends State<SurveyScreen> {
   final _api = ApiService();
 
   List<dynamic> _questions = [];
-  final Map<int, double> _scores = {}; // question_id → score
+  final Map<int, int> _scores = {}; // question_id → score (1–5 integer)
   bool _loading = true;
   bool _submitting = false;
   String? _error;
@@ -59,7 +59,7 @@ class _SurveyScreenState extends State<SurveyScreen> {
       setState(() {
         _questions = questions;
         for (final q in questions) {
-          _scores[q['question_id'] as int] = 3.0;
+          _scores[q['question_id'] as int] = 3;
         }
         _loading = false;
       });
@@ -147,11 +147,11 @@ class _SurveyScreenState extends State<SurveyScreen> {
     );
   }
 
-  String _label(double v) {
-    if (v <= 1.5) return 'Very Low';
-    if (v <= 2.5) return 'Low';
-    if (v <= 3.5) return 'Moderate';
-    if (v <= 4.5) return 'High';
+  String _label(int v) {
+    if (v == 1) return 'Very Low';
+    if (v == 2) return 'Low';
+    if (v == 3) return 'Moderate';
+    if (v == 4) return 'High';
     return 'Very High';
   }
 
@@ -280,7 +280,7 @@ class _SurveyScreenState extends State<SurveyScreen> {
     final detail = question['detail'] as String;
     final color = _questionColors[index % _questionColors.length];
     final icon = _questionIcons[index % _questionIcons.length];
-    final value = _scores[id] ?? 3.0;
+    final value = _scores[id] ?? 3;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -332,7 +332,7 @@ class _SurveyScreenState extends State<SurveyScreen> {
                   color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: Text(value.toStringAsFixed(1),
+                child: Text('$value',
                     style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.w800,
@@ -351,11 +351,11 @@ class _SurveyScreenState extends State<SurveyScreen> {
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
             ),
             child: Slider(
-              value: value,
+              value: value.toDouble(),
               min: 1,
               max: 5,
-              divisions: 8,
-              onChanged: (v) => setState(() => _scores[id] = v),
+              divisions: 4,
+              onChanged: (v) => setState(() => _scores[id] = v.round()),
             ),
           ),
           Row(
